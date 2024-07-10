@@ -1,4 +1,5 @@
 const std = @import("std");
+const bf = @import("bf.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

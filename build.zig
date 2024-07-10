@@ -29,6 +29,14 @@ pub fn build(b: *std.Build) void {
     // running `zig build`).
     b.installArtifact(lib);
 
+    const bf_lib = b.addStaticLibrary(.{
+        .name = "bf",
+        .root_source_file = b.path("src/bf.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    b.installArtifact(bf_lib);
+
     const exe = b.addExecutable(.{
         .name = "bfi",
         .root_source_file = b.path("src/main.zig"),

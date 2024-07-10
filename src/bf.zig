@@ -3,7 +3,7 @@ const expect = std.testing.expect;
 const expectError = std.testing.expectError;
 const Allocator = std.mem.Allocator;
 
-const Bf = struct {
+pub const Bf = struct {
     mem: [256]u8 = .{0} ** 256,
     ptr: u8 = 0,
     code: []const u8,
