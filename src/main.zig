@@ -33,6 +33,17 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected filepath after -i\n", .{});
                 }
             },
+            xorhash("-s") => { // paste text to run
+                if (args_it.next()) |input_code| {
+                    // have to copy code out before it gets freed
+                    const code_copy = try allocator.alloc(u8, input_code.len);
+                    errdefer allocator.free(code_copy);
+                    @memcpy(code_copy, input_code);
+                    config.code = code_copy;
+                } else {
+                    std.debug.print("Expected BF code after -s\n", .{});
+                }
+            },
             else => {
                 std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
             },
