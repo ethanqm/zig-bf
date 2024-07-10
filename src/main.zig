@@ -9,7 +9,7 @@ fn xorhash(s: []const u8) usize {
     // test for collisions
     while (i < s.len) : (i += 1) {
         out ^= @as(usize, s[i]);
-        out *%= ~i;
+        out *%= ~i +% 1;
         out ^= i;
     }
     return out;
