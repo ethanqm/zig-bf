@@ -1,29 +1,61 @@
 const std = @import("std");
 const bf = @import("bf.zig");
+const Allocator = std.mem.Allocator;
+
+fn xorhash(s: []const u8) usize {
+    var out: usize = 0;
+    var i: usize = 0;
+    // i don't know number theory
+    // test for collisions
+    while (i < s.len) : (i += 1) {
+        out ^= @as(usize, s[i]);
+        out *%= ~i;
+        out ^= i;
+    }
+    return out;
+}
+
+fn handle_args(config: *bf.Config, allocator: Allocator) !void {
+    var args_it = try std.process.argsWithAllocator(allocator);
+    defer args_it.deinit();
+    //drop filename arg
+    _ = args_it.next();
+    while (args_it.next()) |arg| {
+        switch (xorhash(arg)) {
+            xorhash("-i") => { // input file to run
+                if (args_it.next()) |input_filepath| {
+                    const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
+                    defer file_handle.close();
+
+                    config.code = try file_handle.readToEndAlloc(allocator, 0xFFFFFFFF);
+                    errdefer allocator.free(config.code);
+                } else {
+                    std.debug.print("Expected filepath after -i\n", .{});
+                }
+            },
+            else => {
+                std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
+            },
+        }
+    }
+}
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    //
+    var config = bf.Config{
+        .mem = null,
+        .code = null,
+    };
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-    try bw.flush();
+    try handle_args(&config, allocator);
 
-    var arg_it = try std.process.argsWithAllocator(allocator);
-    //TODO: hash the arg string so it works :p
-    while (arg_it.next()) |arg| {
-        switch (arg[1]) {
-            'a' => {
-                try stdout.print("totally handled argument: {s}\n", .{arg});
-            },
-            else => {
-                try stdout.print("Unhandled argument '{s}'\n", .{arg});
-            },
-        }
+    var bf_instance = bf.Bf{ .allocator = allocator, .code = config.code.? };
+    try bf_instance.run();
+    if (config.code) |initialized_code| {
+        allocator.free(initialized_code);
     }
-    try bw.flush();
 }

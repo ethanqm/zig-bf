@@ -3,9 +3,14 @@ const expect = std.testing.expect;
 const expectError = std.testing.expectError;
 const Allocator = std.mem.Allocator;
 
+pub const Config = struct {
+    mem: ?[]u8,
+    code: ?[]const u8,
+};
+
 pub const Bf = struct {
     mem: [256]u8 = .{0} ** 256,
-    ptr: u8 = 0,
+    ptr: usize = 0,
     code: []const u8,
     allocator: Allocator,
 
@@ -64,10 +69,10 @@ pub const Bf = struct {
                     std.debug.print("{c}", .{self.mem[self.ptr]});
                 },
                 '>' => {
-                    self.ptr +%= 1;
+                    self.ptr = @mod(self.ptr + 1, self.mem.len);
                 },
                 '<' => {
-                    self.ptr -%= 1;
+                    self.ptr = @mod(self.ptr - 1, self.mem.len);
                 },
                 else => {},
             }
