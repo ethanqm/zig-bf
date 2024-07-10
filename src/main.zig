@@ -22,7 +22,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     _ = args_it.next();
     while (args_it.next()) |arg| {
         switch (xorhash(arg)) {
-            xorhash("-i") => { // input file to run
+            xorhash("-f") => { // input file to run
                 if (args_it.next()) |input_filepath| {
                     const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
                     defer file_handle.close();
@@ -30,10 +30,10 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     config.code = try file_handle.readToEndAlloc(allocator, 0xFFFFFFFF);
                     errdefer allocator.free(config.code);
                 } else {
-                    std.debug.print("Expected filepath after -i\n", .{});
+                    std.debug.print("Expected filepath after -f\n", .{});
                 }
             },
-            xorhash("-s") => { // paste text to run
+            xorhash("-i") => { // paste text to run
                 if (args_it.next()) |input_code| {
                     // have to copy code out before it gets freed
                     const code_copy = try allocator.alloc(u8, input_code.len);
@@ -41,7 +41,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     @memcpy(code_copy, input_code);
                     config.code = code_copy;
                 } else {
-                    std.debug.print("Expected BF code after -s\n", .{});
+                    std.debug.print("Expected BF code after -i\n", .{});
                 }
             },
             else => {
