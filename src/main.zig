@@ -23,15 +23,17 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     _ = args_it.next();
     while (args_it.next()) |arg| {
         switch (xorhash(arg)) {
-            xorhash("-f") => { // input file to run
-                if (args_it.next()) |input_filepath| {
-                    const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
-                    defer file_handle.close();
-                    config.code = try file_handle.readToEndAlloc(allocator, 0xFFFFFFFF);
-                    errdefer allocator.free(config.code);
-                } else {
-                    std.debug.print("Expected filepath after -f\n", .{});
-                }
+            xorhash("-h"), xorhash("--help") => {
+                const help_message =
+                    \\-h            Display this help message
+                    \\--help
+                    \\-i            Paste text to execute immediately
+                    \\-o            Output to file
+                    \\-f            Execute file
+                    \\-r            Enter REPL mode
+                ;
+                try std.io.getStdOut().writer().print("{s}\n", .{help_message});
+                std.process.exit(0);
             },
             xorhash("-i") => { // paste text to run
                 if (args_it.next()) |input_code| {
@@ -54,20 +56,18 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected filename to create after -o\n", .{});
                 }
             },
+            xorhash("-f") => { // input file to run
+                if (args_it.next()) |input_filepath| {
+                    const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
+                    defer file_handle.close();
+                    config.code = try file_handle.readToEndAlloc(allocator, 0xFFFFFFFF);
+                    errdefer allocator.free(config.code);
+                } else {
+                    std.debug.print("Expected filepath after -f\n", .{});
+                }
+            },
             xorhash("-r") => {
                 config.repl = true;
-            },
-            xorhash("-h"), xorhash("--help") => {
-                const help_message =
-                    \\-h            Display this help message
-                    \\--help
-                    \\-i            Paste text to execute immediately
-                    \\-o            Output to file
-                    \\-f            Execute file
-                    \\-r            Enter REPL mode
-                ;
-                try std.io.getStdOut().writer().print("{s}\n", .{help_message});
-                std.process.exit(0);
             },
             else => {
                 std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
@@ -94,6 +94,7 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                 const help_message =
                     \\!help             Display this help message
                     \\!load             Load and execute bf file
+                    \\!dump             Show all memory
                     \\!exit             Exit this program
                 ;
                 try stdout.print("{s}\n", .{help_message});
@@ -112,6 +113,10 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                     try stdout.print("Expected filepath after !load\n", .{});
                 }
             },
+            xorhash("!dump") => {
+                try instance.mem_dump();
+                try stdout.print("\n", .{});
+            },
             xorhash("!exit") => {
                 try stdout.print("Goodbye!\n", .{});
                 std.process.exit(0);
@@ -120,6 +125,7 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                 //keyword not recognised, execute string as if bf code
                 instance.code = input;
                 try instance.run();
+                try stdout.print("\n", .{});
             },
         }
     }
