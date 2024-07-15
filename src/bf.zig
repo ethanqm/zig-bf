@@ -7,12 +7,13 @@ pub const Config = struct {
     mem: ?[]u8,
     code: ?[]const u8,
     writer: ?std.fs.File,
+    repl: bool = false,
 };
 
 pub const Bf = struct {
     mem: [256]u8 = .{0} ** 256,
     ptr: usize = 0,
-    code: []const u8,
+    code: ?[]const u8,
     allocator: Allocator,
     writer: std.fs.File = std.io.getStdOut(),
 
@@ -22,8 +23,8 @@ pub const Bf = struct {
         var stack = std.ArrayList(usize).init(self.allocator);
         defer stack.deinit();
         var i: usize = 0;
-        execute: while (i < self.code.len) : (i += 1) {
-            const tok = self.code[i];
+        execute: while (i < self.code.?.len) : (i += 1) {
+            const tok = self.code.?[i];
             switch (tok) {
                 '+' => {
                     self.mem[self.ptr] +%= 1;
@@ -41,8 +42,8 @@ pub const Bf = struct {
                         };
                     } else {
                         // skip to next ']'
-                        while (i < self.code.len) {
-                            if (self.code[i] != ']') {
+                        while (i < self.code.?.len) {
+                            if (self.code.?[i] != ']') {
                                 i += 1;
                             } else {
                                 // ']' found!

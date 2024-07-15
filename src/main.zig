@@ -54,6 +54,9 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected filename to create after -o\n", .{});
                 }
             },
+            xorhash("-r") => {
+                config.repl = true;
+            },
             xorhash("-h"), xorhash("--help") => {
                 const help_message =
                     \\-h            Display this help message
@@ -61,6 +64,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     \\-i            Paste text to execute immediately
                     \\-o            Output to file
                     \\-f            Execute file
+                    \\-r            Enter REPL mode
                 ;
                 try std.io.getStdOut().writer().print("{s}\n", .{help_message});
                 std.process.exit(0);
@@ -72,16 +76,66 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     }
 }
 
+pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
+    const user_in = std.io.getStdIn().reader();
+    const stdout = std.io.getStdOut().writer();
+
+    try stdout.print("Type !help\n", .{});
+    while (true) {
+        try stdout.print(">", .{});
+        // delimiter 0xA = \n newline
+        const input = try user_in.readUntilDelimiterAlloc(allocator, 0xA, 0xFFFF);
+        defer allocator.free(input);
+        //try to recognise keyword in first position
+        var words_it = std.mem.split(u8, input, " ");
+        const keyword = xorhash(words_it.first());
+        switch (keyword) {
+            xorhash("!help") => {
+                const help_message =
+                    \\!help             Display this help message
+                    \\!load             Load and execute bf file
+                    \\!exit             Exit this program
+                ;
+                try stdout.print("{s}\n", .{help_message});
+            },
+            xorhash("!load") => {
+                if (words_it.next()) |filepath| {
+                    const filehandle = try std.fs.cwd().openFile(filepath, .{});
+                    defer filehandle.close();
+                    const code = try filehandle.readToEndAlloc(allocator, 0xFFFFFFFF);
+                    if (instance.code) |old_code| {
+                        allocator.free(old_code);
+                    }
+                    instance.code = code;
+                    try instance.run();
+                } else {
+                    try stdout.print("Expected filepath after !load\n", .{});
+                }
+            },
+            xorhash("!exit") => {
+                try stdout.print("Goodbye!\n", .{});
+                std.process.exit(0);
+            },
+            else => {
+                //keyword not recognised, execute string as if bf code
+                instance.code = input;
+                try instance.run();
+            },
+        }
+    }
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    //
+    // configure
     var config = bf.Config{
         .mem = null,
         .code = null,
         .writer = null,
+        .repl = false,
     };
     defer {
         if (config.writer) |file| {
@@ -90,14 +144,18 @@ pub fn main() !void {
     }
 
     try handle_args(&config, allocator);
-
-    var bf_instance = bf.Bf{ .allocator = allocator, .code = config.code.? };
+    var bf_instance = bf.Bf{ .allocator = allocator, .code = config.code };
     if (config.writer) |writer| {
         bf_instance.writer = writer;
     }
 
-    try bf_instance.run();
-    if (config.code) |initialized_code| {
-        allocator.free(initialized_code);
+    // run
+    if (config.repl) {
+        try start_repl(&bf_instance, allocator);
+    } else {
+        try bf_instance.run();
+        if (config.code) |initialized_code| {
+            allocator.free(initialized_code);
+        }
     }
 }
