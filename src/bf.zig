@@ -13,6 +13,7 @@ pub const Bf = struct {
     ptr: usize = 0,
     code: []const u8,
     allocator: Allocator,
+    writer: std.fs.File = std.io.getStdOut(),
 
     const Self = @This();
 
@@ -66,7 +67,7 @@ pub const Bf = struct {
                     self.mem[self.ptr] = try std.io.getStdIn().reader().readByte();
                 },
                 '.' => {
-                    std.debug.print("{c}", .{self.mem[self.ptr]});
+                    try self.writer.writer().print("{c}", .{self.mem[self.ptr]});
                 },
                 '>' => {
                     self.ptr = @mod(self.ptr + 1, self.mem.len);
@@ -167,5 +168,23 @@ test "run Hello, File! from file" {
     defer allocator.free(code);
 
     var a = Bf{ .allocator = allocator, .code = code };
+    try a.run();
+}
+
+test "input & output file test" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const test_file = try std.fs.cwd().openFile("testhf.bf", .{});
+    defer test_file.close();
+
+    const code = try test_file.readToEndAlloc(allocator, 0xFFFFFFFF);
+    defer allocator.free(code);
+
+    const out_file = try std.fs.cwd().createFile("output.test.txt", .{});
+    defer out_file.close();
+
+    var a = Bf{ .allocator = allocator, .code = code, .writer = out_file };
     try a.run();
 }
