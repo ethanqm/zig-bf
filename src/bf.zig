@@ -6,6 +6,7 @@ const Allocator = std.mem.Allocator;
 pub const Config = struct {
     mem: ?[]u8,
     code: ?[]const u8,
+    writer: ?std.fs.File,
 };
 
 pub const Bf = struct {

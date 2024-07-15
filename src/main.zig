@@ -45,6 +45,13 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected BF code after -i\n", .{});
                 }
             },
+            xorhash("-o") => {
+                if (args_it.next()) |output_filepath| {
+                    // config owns this file
+                    const file = try std.fs.cwd().createFile(output_filepath, .{});
+                    config.writer = file;
+                }
+            },
             else => {
                 std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
             },
@@ -61,11 +68,21 @@ pub fn main() !void {
     var config = bf.Config{
         .mem = null,
         .code = null,
+        .writer = null,
     };
+    defer {
+        if (config.writer) |file| {
+            file.close();
+        }
+    }
 
     try handle_args(&config, allocator);
 
     var bf_instance = bf.Bf{ .allocator = allocator, .code = config.code.? };
+    if (config.writer) |writer| {
+        bf_instance.writer = writer;
+    }
+
     try bf_instance.run();
     if (config.code) |initialized_code| {
         allocator.free(initialized_code);
