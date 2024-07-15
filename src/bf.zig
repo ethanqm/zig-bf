@@ -63,7 +63,7 @@ pub const Bf = struct {
                     }
                 },
                 ',' => {
-                    std.debug.print(", not implemented", .{});
+                    self.mem[self.ptr] = try std.io.getStdIn().reader().readByte();
                 },
                 '.' => {
                     std.debug.print("{c}", .{self.mem[self.ptr]});

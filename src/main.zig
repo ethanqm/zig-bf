@@ -35,10 +35,11 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
             },
             xorhash("-i") => { // paste text to run
                 if (args_it.next()) |input_code| {
-                    // have to copy code out before it gets freed
-                    const code_copy = try allocator.alloc(u8, input_code.len);
+                    // Have to copy code out before it gets freed.
+                    // This use case is not important enough to optimize.
+                    // This copy keeps ownership in line with -f
+                    const code_copy = try allocator.dupe(u8, input_code);
                     errdefer allocator.free(code_copy);
-                    @memcpy(code_copy, input_code);
                     config.code = code_copy;
                 } else {
                     std.debug.print("Expected BF code after -i\n", .{});
