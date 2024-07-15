@@ -18,6 +18,7 @@ fn xorhash(s: []const u8) usize {
 fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     var args_it = try std.process.argsWithAllocator(allocator);
     defer args_it.deinit();
+
     //drop filename arg
     _ = args_it.next();
     while (args_it.next()) |arg| {
@@ -26,7 +27,6 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                 if (args_it.next()) |input_filepath| {
                     const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
                     defer file_handle.close();
-
                     config.code = try file_handle.readToEndAlloc(allocator, 0xFFFFFFFF);
                     errdefer allocator.free(config.code);
                 } else {
@@ -45,12 +45,25 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected BF code after -i\n", .{});
                 }
             },
-            xorhash("-o") => {
+            xorhash("-o") => { // output file
                 if (args_it.next()) |output_filepath| {
                     // config owns this file
                     const file = try std.fs.cwd().createFile(output_filepath, .{});
                     config.writer = file;
+                } else {
+                    std.debug.print("Expected filename to create after -o\n", .{});
                 }
+            },
+            xorhash("-h"), xorhash("--help") => {
+                const help_message =
+                    \\-h            Display this help message
+                    \\--help
+                    \\-i            Paste text to execute immediately
+                    \\-o            Output to file
+                    \\-f            Execute file
+                ;
+                try std.io.getStdOut().writer().print("{s}\n", .{help_message});
+                std.process.exit(0);
             },
             else => {
                 std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
