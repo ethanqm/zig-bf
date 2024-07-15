@@ -15,6 +15,16 @@ fn xorhash(s: []const u8) usize {
     return out;
 }
 
+const ClArgs = enum(usize) {
+    help = xorhash("-h"),
+    help_long = xorhash("--help"),
+    input = xorhash("-i"),
+    file = xorhash("-f"),
+    output_file = xorhash("-o"),
+    repl = xorhash("-r"),
+    _, // other
+};
+
 fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     var args_it = try std.process.argsWithAllocator(allocator);
     defer args_it.deinit();
@@ -22,8 +32,8 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     //drop filename arg
     _ = args_it.next();
     while (args_it.next()) |arg| {
-        switch (xorhash(arg)) {
-            xorhash("-h"), xorhash("--help") => {
+        switch (@as(ClArgs, @enumFromInt(xorhash(arg)))) {
+            .help, .help_long => {
                 const help_message =
                     \\-h            Display this help message
                     \\--help
@@ -35,7 +45,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                 try std.io.getStdOut().writer().print("{s}\n", .{help_message});
                 std.process.exit(0);
             },
-            xorhash("-i") => { // paste text to run
+            .input => { // paste text to run
                 if (args_it.next()) |input_code| {
                     // Have to copy code out before it gets freed.
                     // This use case is not important enough to optimize.
@@ -47,7 +57,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected BF code after -i\n", .{});
                 }
             },
-            xorhash("-o") => { // output file
+            .output_file => { // output file
                 if (args_it.next()) |output_filepath| {
                     // config owns this file
                     const file = try std.fs.cwd().createFile(output_filepath, .{});
@@ -56,7 +66,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected filename to create after -o\n", .{});
                 }
             },
-            xorhash("-f") => { // input file to run
+            .file => { // input file to run
                 if (args_it.next()) |input_filepath| {
                     const file_handle = try std.fs.cwd().openFile(input_filepath, .{});
                     defer file_handle.close();
@@ -66,7 +76,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                     std.debug.print("Expected filepath after -f\n", .{});
                 }
             },
-            xorhash("-r") => {
+            .repl => {
                 config.repl = true;
             },
             else => {
@@ -76,6 +86,14 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     }
 }
 
+const ReplArgs = enum(usize) {
+    help = xorhash("!help"),
+    load = xorhash("!load"),
+    dump = xorhash("!dump"),
+    exit = xorhash("!exit"),
+    _, // other
+};
+
 pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
     const user_in = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
@@ -84,13 +102,22 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
     while (true) {
         try stdout.print(">", .{});
         // delimiter 0xA = \n newline
-        const input = try user_in.readUntilDelimiterAlloc(allocator, 0xA, 0xFFFF);
+        const input = user_in.readUntilDelimiterAlloc(allocator, 0xA, 0xFFFF) catch |err| switch (err) {
+            error.EndOfStream => {
+                // no longer crash on Ctrl-D
+                try stdout.print("Goodbye!\n", .{});
+                std.process.exit(0);
+            },
+            else => {
+                return err;
+            },
+        };
         defer allocator.free(input);
         //try to recognise keyword in first position
         var words_it = std.mem.split(u8, input, " ");
         const keyword = xorhash(words_it.first());
-        switch (keyword) {
-            xorhash("!help") => {
+        switch (@as(ReplArgs, @enumFromInt(keyword))) {
+            .help => {
                 const help_message =
                     \\!help             Display this help message
                     \\!load             Load and execute bf file
@@ -99,7 +126,7 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                 ;
                 try stdout.print("{s}\n", .{help_message});
             },
-            xorhash("!load") => {
+            .load => {
                 if (words_it.next()) |filepath| {
                     const filehandle = try std.fs.cwd().openFile(filepath, .{});
                     defer filehandle.close();
@@ -113,11 +140,11 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                     try stdout.print("Expected filepath after !load\n", .{});
                 }
             },
-            xorhash("!dump") => {
+            .dump => {
                 try instance.mem_dump();
                 try stdout.print("\n", .{});
             },
-            xorhash("!exit") => {
+            .exit => {
                 try stdout.print("Goodbye!\n", .{});
                 std.process.exit(0);
             },
