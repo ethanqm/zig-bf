@@ -6,7 +6,7 @@ fn xorhash(s: []const u8) usize {
     var out: usize = 0;
     var i: usize = 0;
     // i don't know number theory
-    // test for collisions
+    // enums will compile error with collisions
     while (i < s.len) : (i += 1) {
         out ^= @as(usize, s[i]);
         out *%= ~i +% 1;
@@ -112,7 +112,7 @@ pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
                 return err;
             },
         };
-        defer allocator.free(input);
+        //defer allocator.free(input);
         //try to recognise keyword in first position
         var words_it = std.mem.split(u8, input, " ");
         const keyword = xorhash(words_it.first());
