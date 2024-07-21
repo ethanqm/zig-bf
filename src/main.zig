@@ -26,6 +26,19 @@ const ClArgs = enum(usize) {
     _, // other
 };
 
+fn printHelpAndExit() !void {
+    const help_message =
+        \\-h            Display this help message
+        \\--help
+        \\-i            Paste text to execute immediately
+        \\-o            Output to file
+        \\-f            Execute file
+        \\-r            Enter REPL mode
+    ;
+    try std.io.getStdOut().writer().print("{s}\n", .{help_message});
+    std.process.exit(0);
+}
+
 fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     var args_it = try std.process.argsWithAllocator(allocator);
     defer args_it.deinit();
@@ -35,16 +48,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
     while (args_it.next()) |arg| {
         switch (@as(ClArgs, @enumFromInt(xorhash(arg)))) {
             .help, .help_long => {
-                const help_message =
-                    \\-h            Display this help message
-                    \\--help
-                    \\-i            Paste text to execute immediately
-                    \\-o            Output to file
-                    \\-f            Execute file
-                    \\-r            Enter REPL mode
-                ;
-                try std.io.getStdOut().writer().print("{s}\n", .{help_message});
-                std.process.exit(0);
+                try printHelpAndExit();
             },
             .input => { // paste text to run
                 if (args_it.next()) |input_code| {
@@ -82,6 +86,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
             },
             else => {
                 std.debug.print("Unrecognised arg \"{s}\"\n", .{arg});
+                try printHelpAndExit();
             },
         }
     }
@@ -115,6 +120,10 @@ pub fn main() !void {
     if (config.repl) {
         try repl.start_repl(&bf_instance, allocator);
     } else {
+        // no input or repl
+        if (config.code == null) {
+            try printHelpAndExit();
+        }
         try bf_instance.run();
         if (config.code) |initialized_code| {
             allocator.free(initialized_code);
