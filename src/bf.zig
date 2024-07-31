@@ -113,7 +113,9 @@ test "hello world test" {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     const hw_string = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
-    var a = Bf{ .allocator = allocator, .code = hw_string };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = hw_string;
     try a.run();
 }
 
@@ -123,7 +125,9 @@ test "no loop test" {
     const allocator = gpa.allocator();
     // ASCII 33, 10 : !\n
     const code = "+++++++++++++++++++++++++++++++++.>++++++++++.";
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try a.run();
     try std.testing.expectEqual(33, a.mem[0]);
     try std.testing.expectEqual(10, a.mem[1]);
@@ -134,7 +138,9 @@ test "comment test" {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     const code = "Irrelevant Text1234567890!@#$%^&*()_={}|/?;:'\u{2764}++++++++++.";
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try a.run();
     try std.testing.expectEqual(10, a.mem[0]);
 }
@@ -144,7 +150,9 @@ test "no closing paren: skip" {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     const code = "++++++++++.[";
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try expectError(error.NoMatchingParen, a.run());
     try std.testing.expectEqual(10, a.mem[0]);
 }
@@ -154,7 +162,9 @@ test "no closing paren: enter" {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     const code = "+[+++++++++.";
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try expectError(error.NoMatchingParen, a.run());
 }
 
@@ -166,7 +176,9 @@ test "code switching" {
     const code = "+++++++++++++++++++++++++++++++++.";
     // \n
     const code2 = ">++++++++++.";
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try a.run();
     a.code = code2;
     try a.run();
@@ -185,7 +197,9 @@ test "run Hello, File! from file" {
     const code = try test_file.readToEndAlloc(allocator, 0xFFFFFFFF);
     defer allocator.free(code);
 
-    var a = Bf{ .allocator = allocator, .code = code };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
     try a.run();
 }
 
@@ -203,6 +217,9 @@ test "input & output file test" {
     const out_file = try std.fs.cwd().createFile("output.test.txt", .{});
     defer out_file.close();
 
-    var a = Bf{ .allocator = allocator, .code = code, .writer = out_file };
+    var a = Bf().init(allocator);
+    defer a.deinit();
+    a.code = code;
+    a.file = out_file;
     try a.run();
 }
