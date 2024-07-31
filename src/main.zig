@@ -66,7 +66,7 @@ fn handle_args(config: *bf.Config, allocator: Allocator) !void {
                 if (args_it.next()) |output_filepath| {
                     // config owns this file
                     const file = try std.fs.cwd().createFile(output_filepath, .{});
-                    config.writer = file;
+                    config.file = file;
                 } else {
                     std.debug.print("Expected filename to create after -o\n", .{});
                 }
@@ -101,19 +101,21 @@ pub fn main() !void {
     var config = bf.Config{
         .mem = null,
         .code = null,
-        .writer = null,
+        .file = null,
         .repl = false,
     };
     defer {
-        if (config.writer) |file| {
+        if (config.file) |file| {
             file.close();
         }
     }
 
     try handle_args(&config, allocator);
-    var bf_instance = bf.Bf{ .allocator = allocator, .code = config.code };
-    if (config.writer) |writer| {
-        bf_instance.writer = writer;
+    var bf_instance = bf.Bf().init(allocator);
+    defer bf_instance.deinit();
+    bf_instance.code = config.code;
+    if (config.file) |file| {
+        bf_instance.file = file;
     }
 
     // run

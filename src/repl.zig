@@ -11,7 +11,7 @@ const ReplArgs = enum(usize) {
     _, // other
 };
 
-pub fn start_repl(instance: *bf.Bf, allocator: Allocator) !void {
+pub fn start_repl(instance: *bf.Bf(), allocator: Allocator) !void {
     const user_in = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
 

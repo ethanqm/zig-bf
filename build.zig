@@ -35,7 +35,23 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    //exe.linkLibrary(bf_lib);
+    const gui_exe = b.addExecutable(.{
+        .name = "bfui",
+        .root_source_file = b.path("src/gui.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const zig_webui = b.dependency("zig-webui", .{
+        .target = target,
+        .optimize = optimize,
+        .enable_tls = false,
+        .is_static = true,
+    });
+    //gui_exe.linkLibrary(zig_webui.artifact("webui_c"));
+    gui_exe.root_module.addImport("webui", zig_webui.module("webui"));
+
+    b.installArtifact(gui_exe);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -46,12 +62,14 @@ pub fn build(b: *std.Build) void {
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
     const run_cmd = b.addRunArtifact(exe);
+    const run_gui = b.addRunArtifact(gui_exe);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
     // This is not necessary, however, if the application depends on other installed
     // files, this ensures they will be present and in the expected location.
     run_cmd.step.dependOn(b.getInstallStep());
+    run_gui.step.dependOn(b.getInstallStep());
 
     // This allows the user to pass arguments to the application in the build
     // command itself, like this: `zig build run -- arg1 arg2 etc`
@@ -64,6 +82,8 @@ pub fn build(b: *std.Build) void {
     // This will evaluate the `run` step rather than the default, which is "install".
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+    const run_gui_step = b.step("run-gui", "Run the gui app");
+    run_gui_step.dependOn(&run_gui.step);
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
